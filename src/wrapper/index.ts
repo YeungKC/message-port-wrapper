@@ -5,15 +5,19 @@ export type InvokeHandler<T = any, R = any> = (
   error?: Error
 ) => R | Promise<R>;
 
-export interface MessagePortWrapper {
+interface CallFunc {
   /**
-   * post a message without return value
+   * invoke a handler with return value
    */
-  post: <T = any>(channel: string, data: T) => void;
+  <R = any, T = any>(channel: string, data: T): Promise<R>;
+}
+
+export interface MessagePortWrapper extends CallFunc {
   /**
-   * post a message with return value
+   * invoke a handler without return value
    */
-  call: <T = any, R = any>(channel: string, data: T) => Promise<R>;
+  send: <T = any>(channel: string, data: T) => void;
+  invoke: CallFunc;
   /**
    * add a handler
    */
@@ -33,16 +37,15 @@ export interface MessagePortWrapper {
    * remove all handlers
    */
   removeAllHandlers: () => void;
-  /**
-   * post a message with return value
-   */
-  <T = any, R = any>(channel: string, data: T): Promise<R>;
 }
 
-export const MessagePortWrapper = (port: MessagePort): MessagePortWrapper => {
+export const MessagePortWrapper = (
+  port: MessagePort,
+  nanoSize = 11
+): MessagePortWrapper => {
   const invokeHandlers: Map<string, InvokeHandler> = new Map();
 
-  const send = <T = any>(data: {
+  const _send = <T = any>(data: {
     id?: string;
     channel?: string;
     data?: T;
@@ -51,8 +54,8 @@ export const MessagePortWrapper = (port: MessagePort): MessagePortWrapper => {
     port.postMessage(data);
   };
 
-  const post = <T = any>(channel: string, data: T): void => {
-    send({
+  const send = <T = any>(channel: string, data: T): void => {
+    _send({
       channel,
       data,
     });
@@ -63,7 +66,7 @@ export const MessagePortWrapper = (port: MessagePort): MessagePortWrapper => {
     const handler = invokeHandlers.get(id) || invokeHandlers.get(channel);
 
     if (!handler) {
-      send({
+      _send({
         id,
         error: new Error('Handler not found'),
       });
@@ -74,14 +77,14 @@ export const MessagePortWrapper = (port: MessagePort): MessagePortWrapper => {
       const result = await handler(data, error);
       if (!id) return;
 
-      send({
+      _send({
         id,
         data: result,
       });
     } catch (e) {
       if (!id) return;
 
-      send({
+      _send({
         id,
         error: e,
       });
@@ -119,27 +122,27 @@ export const MessagePortWrapper = (port: MessagePort): MessagePortWrapper => {
     });
   };
 
-  const call = <T = any, R = any>(channel: string, data: T): Promise<R> =>
+  const invoke = <R = any, T = any>(channel: string, data: T): Promise<R> =>
     new Promise<R>((resolve, reject) => {
-      const id = nanoid(11);
+      const id = nanoid(nanoSize);
       once(id, (data: R, error?: Error) => {
         if (error) reject(error);
         else resolve(data);
       });
 
-      send({
+      _send({
         channel,
         id,
         data,
       });
     });
 
-  return Object.assign(call, {
-    post,
-    call,
-    on,
-    once,
-    removeHandler,
-    removeAllHandlers,
-  });
+  invoke.invoke = invoke;
+  invoke.send = send;
+  invoke.on = on;
+  invoke.once = once;
+  invoke.removeHandler = removeHandler;
+  invoke.removeAllHandlers = removeAllHandlers;
+
+  return invoke;
 };

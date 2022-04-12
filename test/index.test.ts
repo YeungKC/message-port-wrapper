@@ -19,8 +19,8 @@ describe('MessagePortWrapper', () => {
     wrapper1.on('test', () => 'foo');
     wrapper2.on('test', (data: any) => data);
 
-    const data1 = await wrapper1('test', 'test');
-    const data2 = await wrapper2.call('test', 'test');
+    const data1 = await wrapper1<string>('test', 'test');
+    const data2 = await wrapper2.invoke<string>('test', 'test');
     expect(data1).toBe('test');
     expect(data2).toBe('foo');
   });

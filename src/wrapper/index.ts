@@ -9,14 +9,14 @@ interface CallFunc {
   /**
    * invoke a handler with return value
    */
-  <R = any, T = any>(channel: string, data: T): Promise<R>;
+  <R = any, T = any>(channel: string, data?: T): Promise<R>;
 }
 
 export interface MessagePortWrapper extends CallFunc {
   /**
    * invoke a handler without return value
    */
-  send: <T = any>(channel: string, data: T) => void;
+  send: <T = any>(channel: string, data?: T) => void;
   invoke: CallFunc;
   /**
    * add a handler
@@ -54,7 +54,7 @@ export const MessagePortWrapper = (
     port.postMessage(data);
   };
 
-  const send = <T = any>(channel: string, data: T): void => {
+  const send = <T = any>(channel: string, data?: T): void => {
     _send({
       channel,
       data,
@@ -122,7 +122,7 @@ export const MessagePortWrapper = (
     });
   };
 
-  const invoke = <R = any, T = any>(channel: string, data: T): Promise<R> =>
+  const invoke = <R = any, T = any>(channel: string, data?: T): Promise<R> =>
     new Promise<R>((resolve, reject) => {
       const id = nanoid(nanoSize);
       once(id, (data: R, error?: Error) => {
